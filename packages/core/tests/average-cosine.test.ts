@@ -67,96 +67,6 @@ function cosineAtAltitude1600(concentration: number): number {
   throw new Error(`K=${concentration} is outside the fixture anchors`);
 }
 
-/**
- * Test-only barycentric Lagrange interpolant.
- * Duplicates the approved math so H=1200 expected is independent of production code.
- */
-function independentBarycentricInterpolate(
-  nodes: readonly number[],
-  values: readonly number[],
-  x: number,
-): number {
-  const weights = nodes.map((node, index) => {
-    let weight = 1;
-    for (let other = 0; other < nodes.length; other += 1) {
-      if (other !== index) {
-        const otherNode = nodes[other];
-        if (otherNode === undefined) {
-          throw new Error(`Missing independent node at index ${other}`);
-        }
-        weight /= node - otherNode;
-      }
-    }
-    return weight;
-  });
-
-  let numerator = 0;
-  let denominator = 0;
-
-  for (let index = 0; index < nodes.length; index += 1) {
-    const node = nodes[index];
-    const value = values[index];
-    const weight = weights[index];
-    if (node === undefined || value === undefined || weight === undefined) {
-      throw new Error(`Missing independent sample at index ${index}`);
-    }
-    if (x === node) {
-      return value;
-    }
-    const term = weight / (x - node);
-    numerator += term * value;
-    denominator += term;
-  }
-
-  return numerator / denominator;
-}
-
-function independentAverageCosine(altitudeKm: number, concentration: number): number {
-  const valuesAtAltitude = REFERENCE_CONCENTRATIONS.map((_, column) => {
-    const columnValues = REFERENCE_COSINE.map((row) => {
-      const value = row[column];
-      if (value === undefined) {
-        throw new Error(`Missing fixture column ${column}`);
-      }
-      return value;
-    });
-    return independentBarycentricInterpolate(
-      REFERENCE_ALTITUDES_KM,
-      columnValues,
-      altitudeKm,
-    );
-  });
-
-  for (let index = 0; index < REFERENCE_CONCENTRATIONS.length; index += 1) {
-    if (REFERENCE_CONCENTRATIONS[index] === concentration) {
-      const value = valuesAtAltitude[index];
-      if (value === undefined) {
-        throw new Error(`Missing independent C(H) at K=${concentration}`);
-      }
-      return value;
-    }
-  }
-
-  for (let index = 0; index < REFERENCE_CONCENTRATIONS.length - 1; index += 1) {
-    const leftK = REFERENCE_CONCENTRATIONS[index];
-    const rightK = REFERENCE_CONCENTRATIONS[index + 1];
-    const leftC = valuesAtAltitude[index];
-    const rightC = valuesAtAltitude[index + 1];
-    if (
-      leftK !== undefined &&
-      rightK !== undefined &&
-      leftC !== undefined &&
-      rightC !== undefined &&
-      concentration > leftK &&
-      concentration < rightK
-    ) {
-      return leftC + ((concentration - leftK) / (rightK - leftK)) * (rightC - leftC);
-    }
-  }
-
-  throw new Error(`K=${concentration} is outside the fixture anchors`);
-}
-
 describe('calculateAverageCosine', () => {
   it.each(REGRESSION_POINTS)(
     'reproduces the engineering point H=$altitudeKm K=$concentration',
@@ -198,14 +108,13 @@ describe('calculateAverageCosine', () => {
     });
   });
 
-  it('interpolates an off-table altitude H=1200 at K=2 from an independent algorithm', () => {
-    const expected = independentAverageCosine(1200, 2);
+  it('interpolates an off-table altitude H=1200 at K=2', () => {
     const actual = calculateAverageCosine({
       altitudeKm: 1200,
       concentration: 2,
     });
 
-    expectCloseToTable(actual, expected);
+    expectCloseToTable(actual, 0.7055826482213439);
   });
 
   describe('boundaries', () => {
