@@ -1,2 +1,5 @@
-/** Placeholder: configuration power model. Implemented in a later issue. */
-export {};
+export {
+  AveragePowerError,
+  calculateAveragePower,
+} from './average-power';
+export type { AveragePowerParams } from './average-power';
