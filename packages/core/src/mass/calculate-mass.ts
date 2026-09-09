@@ -1,4 +1,6 @@
-export type StructureType = 'honeycomb' | 'frame';
+import type { StructureType } from '../models/types';
+
+export type { StructureType };
 
 export interface MassParams {
   sepAreaM2: number;
