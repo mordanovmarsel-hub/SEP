@@ -1,4 +1,7 @@
 import type { ParetoMetric, SepSolution } from '../models';
+import { markParetoSolutions as markParetoSolutionsImpl } from './mark-pareto-solutions';
+
+export { ParetoError } from './mark-pareto-solutions';
 
 /**
  * Canonical name: `markParetoSolutions`.
@@ -13,3 +16,5 @@ export type MarkParetoSolutions = (
   solutions: readonly SepSolution[],
   criteria?: readonly ParetoMetric[],
 ) => SepSolution[];
+
+export const markParetoSolutions: MarkParetoSolutions = markParetoSolutionsImpl;
