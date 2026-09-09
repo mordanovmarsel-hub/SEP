@@ -20,4 +20,7 @@ function resolveBase(): string {
 export default defineConfig({
   base: resolveBase(),
   plugins: [react()],
+  optimizeDeps: {
+    include: ['plotly.js-dist-min'],
+  },
 });
