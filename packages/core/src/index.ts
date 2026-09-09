@@ -65,6 +65,7 @@ export type {
   MaxConcentrationForStructure,
 } from './constraints';
 
+export { ParetoError, markParetoSolutions } from './pareto';
 export type { MarkParetoSolutions } from './pareto';
 
 export function coreHealthcheck(): string {
