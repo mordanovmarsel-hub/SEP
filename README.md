@@ -9,6 +9,27 @@ SEP — программа для поиска допустимых конфиг
 - [`docs/specification.md`](docs/specification.md) — математическая и функциональная спецификация;
 - [`docs/architecture.md`](docs/architecture.md) — архитектура MVP и технологический стек.
 
+## Разработка
+
+Требования: Node.js 22+, pnpm 10 (`corepack enable`).
+
+```bash
+pnpm install
+pnpm dev        # Vite + React, apps/web
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+Структура workspace:
+
+- `apps/web` — клиент на Vite + React;
+- `packages/core` — математическое ядро `@sep/core`;
+- `packages/tsconfig` — общие TypeScript-конфиги.
+
+Клиент импортирует `@sep/core` и выполняет расчёты локально в браузере. Backend-приложения нет. Статический production build публикуется в GitHub Pages из `apps/web/dist`.
+
 ## Архитектура MVP
 
 - Turborepo + `pnpm` workspaces;

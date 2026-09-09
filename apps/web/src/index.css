@@ -1,0 +1,25 @@
+:root {
+  color: #1f2933;
+  background: #f8fafc;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  margin: 0 0 1rem;
+}
+
+p {
+  color: #4b5563;
+  line-height: 1.6;
+  margin: 0;
+}
