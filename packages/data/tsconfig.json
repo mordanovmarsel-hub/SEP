@@ -1,0 +1,8 @@
+{
+  "extends": "@sep/tsconfig/library.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src", "tests", "vitest.config.ts"]
+}
