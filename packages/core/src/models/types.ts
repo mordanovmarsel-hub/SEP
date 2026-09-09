@@ -116,8 +116,7 @@ export interface SepCalculationResult {
 }
 
 /**
- * Canonical top-level API. Workstream C implements `calculateSep`.
- * v1 always uses EFFICIENCY_MODEL = CONSTANT.
+ * Canonical top-level API. v1 always uses EFFICIENCY_MODEL = CONSTANT.
  */
 export type CalculateSep = (input: SepCalculationInput) => SepCalculationResult;
 

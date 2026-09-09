@@ -68,6 +68,8 @@ export type {
 export { ParetoError, markParetoSolutions } from './pareto';
 export type { MarkParetoSolutions } from './pareto';
 
+export { calculateSep } from './generator';
+
 export function coreHealthcheck(): string {
   return 'ok';
 }
