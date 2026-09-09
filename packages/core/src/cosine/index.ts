@@ -1,2 +1,5 @@
-/** Placeholder: average cos(alpha) interpolation. Implemented in a later issue. */
-export {};
+export {
+  AverageCosineError,
+  calculateAverageCosine,
+} from './average-cosine';
+export type { AverageCosineParams } from './average-cosine';
