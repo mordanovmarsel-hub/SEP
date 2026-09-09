@@ -31,6 +31,7 @@ export {
   PARETO_METRIC_SENSE,
   SEP_AREA_STEP_M2,
   SepCalculationError,
+  validateSepCalculationInput,
 } from './models';
 export type {
   CalculateSep,
@@ -50,6 +51,9 @@ export type {
 export {
   CONSTRAINT_VIOLATION_ORDER,
   STRUCTURE_MAX_CONCENTRATION,
+  evaluateConstraints,
+  isStructurallyFeasible,
+  maxConcentrationForStructure,
 } from './constraints';
 export type {
   ConstraintEvaluation,

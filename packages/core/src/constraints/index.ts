@@ -11,3 +11,8 @@ export type {
   IsStructurallyFeasible,
   MaxConcentrationForStructure,
 } from './types';
+export {
+  evaluateConstraints,
+  isStructurallyFeasible,
+  maxConcentrationForStructure,
+} from './evaluate-constraints';

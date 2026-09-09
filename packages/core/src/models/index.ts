@@ -34,3 +34,4 @@ export type {
 } from './constants';
 
 export { SepCalculationError } from './errors';
+export { validateSepCalculationInput } from './validate-sep-calculation-input';
