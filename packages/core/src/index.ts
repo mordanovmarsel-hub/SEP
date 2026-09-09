@@ -10,6 +10,16 @@ export {
 } from './power';
 export type { AveragePowerParams } from './power';
 
+export {
+  MassCalculationError,
+  calculateMass,
+} from './mass';
+export type {
+  MassParams,
+  MassResult,
+  StructureType,
+} from './mass';
+
 export function coreHealthcheck(): string {
   return 'ok';
 }

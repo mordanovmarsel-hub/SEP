@@ -1,2 +1,9 @@
-/** Placeholder: structure and concentrator mass model. Implemented in a later issue. */
-export {};
+export {
+  MassCalculationError,
+  calculateMass,
+} from './calculate-mass';
+export type {
+  MassParams,
+  MassResult,
+  StructureType,
+} from './calculate-mass';
