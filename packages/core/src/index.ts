@@ -68,7 +68,12 @@ export type {
 export { ParetoError, markParetoSolutions } from './pareto';
 export type { MarkParetoSolutions } from './pareto';
 
-export { calculateSep } from './generator';
+export {
+  MAX_AREA_TICK_COUNT,
+  calculateSep,
+  effectiveMaxSepAreaM2,
+  maxAreaTickCount,
+} from './generator';
 
 export function coreHealthcheck(): string {
   return 'ok';

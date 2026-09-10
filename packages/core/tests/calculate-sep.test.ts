@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
   GENERATOR_CONCENTRATIONS,
+  MAX_AREA_TICK_COUNT,
   ParetoError,
   SepCalculationError,
   calculateAverageCosine,
   calculateAveragePower,
   calculateMass,
   calculateSep,
+  effectiveMaxSepAreaM2,
   evaluateConstraints,
   markParetoSolutions,
+  maxAreaTickCount,
 } from '../src/index';
 import type {
   ConcentratorMaterial,
@@ -62,8 +65,17 @@ function freezeInput(input: SepCalculationInput): SepCalculationInput {
   });
 }
 
+/**
+ * Same integer-tick reading of S_max as production: if the raw product is
+ * within a few ULPs of n*0.1, expected max is n*0.1 (last included tick).
+ * `0.25` stays 0.25; `0.3 * 3` becomes 0.9.
+ */
+function expectedMaxSepAreaM2(input: SepCalculationInput): number {
+  return effectiveMaxSepAreaM2(input.maxPanelAreaM2 * input.panelCount);
+}
+
 function expectInvariants(result: ReturnType<typeof calculateSep>, input: SepCalculationInput): void {
-  const maxSepAreaM2 = input.maxPanelAreaM2 * input.panelCount;
+  const maxSepAreaM2 = expectedMaxSepAreaM2(input);
 
   expect(result.totalFeasible).toBe(result.solutions.length);
   expect(new Set(result.solutions.map((solution) => solution.id)).size).toBe(
@@ -167,6 +179,53 @@ describe('calculateSep', () => {
     expect(productAreas).toEqual(singleAreas);
     expect(fromProduct.totalGenerated).toBe(fromSingle.totalGenerated);
     expect(fromProduct.totalGenerated).toBe(180);
+
+    const productInput = fixtureInput({ maxPanelAreaM2: 0.3, panelCount: 3 });
+    expectInvariants(fromProduct, productInput);
+    const lastTick = fromProduct.solutions.filter((solution) => solution.sepAreaM2 === 0.9);
+    expect(lastTick.length).toBeGreaterThan(0);
+    for (const solution of lastTick) {
+      expect(solution.areaMarginM2).toBe(0);
+      expect(solution.sepAreaM2).toBeLessThanOrEqual(expectedMaxSepAreaM2(productInput));
+    }
+  });
+
+  it('snaps 0.09*10 and 0.6*3 the same way as an exact grid S_max', () => {
+    const fromProductA = calculateSep(
+      fixtureInput({ maxPanelAreaM2: 0.09, panelCount: 10 }),
+    );
+    const fromExactA = calculateSep(
+      fixtureInput({ maxPanelAreaM2: 0.9, panelCount: 1 }),
+    );
+    const fromProductB = calculateSep(
+      fixtureInput({ maxPanelAreaM2: 0.6, panelCount: 3 }),
+    );
+    const fromExactB = calculateSep(
+      fixtureInput({ maxPanelAreaM2: 1.8, panelCount: 1 }),
+    );
+
+    const areas = (result: ReturnType<typeof calculateSep>): number[] =>
+      [...new Set(result.solutions.map((solution) => solution.sepAreaM2))].sort(
+        (left, right) => left - right,
+      );
+
+    expect(areas(fromProductA).at(-1)).toBe(0.9);
+    expect(areas(fromProductA)).toEqual(areas(fromExactA));
+    expect(areas(fromProductB).at(-1)).toBe(1.8);
+    expect(areas(fromProductB)).toEqual(areas(fromExactB));
+  });
+
+  it('does not snap 0.9 - 5e-11 up to 0.9: last tick is 0.8', () => {
+    const result = calculateSep(
+      fixtureInput({ maxPanelAreaM2: 0.9 - 5e-11, panelCount: 1 }),
+    );
+    const areas = [
+      ...new Set(result.solutions.map((solution) => solution.sepAreaM2)),
+    ].sort((left, right) => left - right);
+
+    expect(areas.at(-1)).toBe(0.8);
+    expect(areas.includes(0.9)).toBe(false);
+    expect(maxAreaTickCount(0.9 - 5e-11)).toBe(8);
   });
 
   it('does not round 0.25 up: last tick is 0.2, not 0.3', () => {
@@ -190,13 +249,23 @@ describe('calculateSep', () => {
     ).toThrow(/S_max/);
   });
 
-  it('rejects unphysical S_max just above the 1_000_000 tick cap', () => {
+  it('rejects S_max at and above the 1_000_000 tick cap (100000 m²)', () => {
+    expect(maxAreaTickCount(100_000)).toBe(MAX_AREA_TICK_COUNT);
+    expect(() =>
+      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000, panelCount: 1 })),
+    ).toThrow(SepCalculationError);
+    expect(() =>
+      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000, panelCount: 1 })),
+    ).toThrow(/100000/);
     expect(() =>
       calculateSep(fixtureInput({ maxPanelAreaM2: 100_000.1, panelCount: 1 })),
     ).toThrow(SepCalculationError);
-    expect(() =>
-      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000.1, panelCount: 1 })),
-    ).toThrow(/100000/);
+  });
+
+  it('keeps 99999.9 m² below the tick cap without enumerating it', () => {
+    // 99999.9 → 999_999 ticks, allowed. Do not call calculateSep here.
+    expect(maxAreaTickCount(99_999.9)).toBe(999_999);
+    expect(maxAreaTickCount(99_999.9)).toBeLessThan(MAX_AREA_TICK_COUNT);
   });
 
   it('throws SepCalculationError, not ParetoError, for empty or unknown paretoCriteria', () => {
@@ -428,7 +497,7 @@ describe('calculateSep property-style invariant grid', () => {
             expectInvariants(result, input);
 
             for (const solution of result.solutions) {
-              const maxSepAreaM2 = input.maxPanelAreaM2 * input.panelCount;
+              const maxSepAreaM2 = expectedMaxSepAreaM2(input);
               expect(solution.averagePowerW).toBeGreaterThanOrEqual(input.requiredPowerW);
               expect(solution.totalMassKg).toBeLessThanOrEqual(input.maxMassKg);
               expect(solution.sepAreaM2).toBeLessThanOrEqual(maxSepAreaM2);

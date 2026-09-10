@@ -6,14 +6,20 @@ describe('readSolutionId', () => {
     expect(readSolutionId('sol-1')).toBe('sol-1');
   });
 
-  it('accepts the first element of an array', () => {
-    expect(readSolutionId(['sol-2', 'ignored'])).toBe('sol-2');
+  it('accepts a single-element string wrapper', () => {
+    expect(readSolutionId(['sol-2'])).toBe('sol-2');
   });
 
-  it('rejects empty values', () => {
+  it('reconstructs a parsed JSON solution-id tuple', () => {
+    const tuple = ['fixture-fep', 'honeycomb', null, 1200, 1, 1] as const;
+    expect(readSolutionId([...tuple])).toBe(JSON.stringify([...tuple]));
+  });
+
+  it('rejects empty values and non-tuple arrays', () => {
     expect(readSolutionId('')).toBeNull();
     expect(readSolutionId([])).toBeNull();
     expect(readSolutionId([1])).toBeNull();
+    expect(readSolutionId(['sol-2', 'ignored'])).toBeNull();
     expect(readSolutionId(null)).toBeNull();
     expect(readSolutionId(undefined)).toBeNull();
   });

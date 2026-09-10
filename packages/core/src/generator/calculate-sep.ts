@@ -24,15 +24,19 @@ const SEP_AREA_TICKS_PER_M2 = Math.round(1 / SEP_AREA_STEP_M2);
 /**
  * Treat `S_max * 10` as an integer tick count when IEEE rounding left it
  * within this epsilon of a whole number (e.g. `0.3 * 3 → 8.999… → 9`).
+ * ~1e-15 is typical product noise; 1e-12 on the scaled tick must not round
+ * `S_max = 0.9 - 5e-11` up to 0.9.
  */
-const AREA_TICK_INTEGER_EPS = 1e-9;
+const AREA_TICK_INTEGER_EPS = 1e-12;
 
 /**
  * Maximum number of 0.1 m² area ticks the generator will enumerate.
- * `1_000_000` ticks means `S_max = 100_000` m²; anything larger is unphysical
- * for v1 and would freeze the UI. This is a hard reject, not a silent truncate.
+ * `1_000_000` ticks means `S_max = 100_000` m²; that value and anything
+ * larger is unphysical for v1 and would freeze the UI. Hard reject at
+ * equality (`maxTick >= MAX_AREA_TICK_COUNT`), not a silent truncate.
+ * `S_max = 99999.9` (999_999 ticks) stays below the cap.
  */
-const MAX_AREA_TICK_COUNT = 1_000_000;
+export const MAX_AREA_TICK_COUNT = 1_000_000;
 
 interface AreaTick {
   tick: number;
@@ -55,7 +59,7 @@ interface CandidateContext {
  * Near-integer `S_max * 10` snaps to that integer so `0.3 * 3` yields 9.
  * Otherwise `Math.floor`, so `0.25` stays at tick 2 and does not become 0.3.
  */
-function maxAreaTickFromSmax(maxSepAreaM2: number): number {
+export function maxAreaTickCount(maxSepAreaM2: number): number {
   const scaled = maxSepAreaM2 * SEP_AREA_TICKS_PER_M2;
   const nearest = Math.round(scaled);
   if (Math.abs(scaled - nearest) <= AREA_TICK_INTEGER_EPS) {
@@ -70,7 +74,7 @@ function maxAreaTickFromSmax(maxSepAreaM2: number): number {
  * so `0.3 * 3` is treated as `0.9` (last step included and feasible).
  * Non-grid values such as `0.25` stay unchanged.
  */
-function effectiveMaxSepAreaM2(maxSepAreaM2: number): number {
+export function effectiveMaxSepAreaM2(maxSepAreaM2: number): number {
   const scaled = maxSepAreaM2 * SEP_AREA_TICKS_PER_M2;
   const nearest = Math.round(scaled);
   if (Math.abs(scaled - nearest) <= AREA_TICK_INTEGER_EPS) {
@@ -86,7 +90,7 @@ function effectiveMaxSepAreaM2(maxSepAreaM2: number): number {
  * `S_max < 0.1` yields an empty list.
  */
 function enumerateAreaTicks(maxSepAreaM2: number): AreaTick[] {
-  const maxTick = maxAreaTickFromSmax(maxSepAreaM2);
+  const maxTick = maxAreaTickCount(maxSepAreaM2);
   const ticks: AreaTick[] = [];
 
   for (let tick = 1; tick <= maxTick; tick += 1) {
@@ -233,10 +237,10 @@ export function calculateSep(input: SepCalculationInput): SepCalculationResult {
     );
   }
 
-  const maxTick = maxAreaTickFromSmax(rawMaxSepAreaM2);
-  if (maxTick > MAX_AREA_TICK_COUNT) {
+  const maxTick = maxAreaTickCount(rawMaxSepAreaM2);
+  if (maxTick >= MAX_AREA_TICK_COUNT) {
     throw new SepCalculationError(
-      `Invalid S_max: area tick count ${String(maxTick)} exceeds the ${String(MAX_AREA_TICK_COUNT)} cap (S_max > 100000 m²)`,
+      `Invalid S_max: area tick count ${String(maxTick)} exceeds the ${String(MAX_AREA_TICK_COUNT)} cap (S_max >= 100000 m²)`,
     );
   }
 
