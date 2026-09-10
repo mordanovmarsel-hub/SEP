@@ -43,29 +43,13 @@ describe('mapCalculationError', () => {
     expect(mapped).not.toBe('Максимальная площадь панели должна быть больше 0.');
   });
 
-  it('maps the area-tick cap to a Russian enumeration-limit message', () => {
-    const error = thrownSepError(() => {
-      calculateSep({
-        ...VALID_INPUT,
-        maxPanelAreaM2: 100_000,
-        panelCount: 1,
-      });
-    });
-
-    expect(error.message).toMatch(/area tick count|MAX_AREA_TICK_COUNT/);
-    const mapped = mapCalculationError(error);
-    expect(mapped).toMatch(/предел перебора|слишком велик/i);
-    expect(mapped).not.toMatch(/area tick count/);
-    expect(mapped).not.toBe('Максимальная площадь панели должна быть больше 0.');
-  });
-
   it('keeps the area > 0 message only for genuine maxPanelAreaM2 <= 0', () => {
     const error = thrownSepError(() => {
       calculateSep({ ...VALID_INPUT, maxPanelAreaM2: 0 });
     });
 
     expect(error.message).toMatch(/maxPanelAreaM2/);
-    expect(error.message).not.toMatch(/overflowed|area tick count/);
+    expect(error.message).not.toMatch(/overflowed/);
     expect(mapCalculationError(error)).toBe(
       'Максимальная площадь панели должна быть больше 0.',
     );

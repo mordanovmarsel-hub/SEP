@@ -1,17 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   GENERATOR_CONCENTRATIONS,
-  MAX_AREA_TICK_COUNT,
   ParetoError,
   SepCalculationError,
   calculateAverageCosine,
   calculateAveragePower,
   calculateMass,
   calculateSep,
-  effectiveMaxSepAreaM2,
   evaluateConstraints,
   markParetoSolutions,
-  maxAreaTickCount,
 } from '../src/index';
 import type {
   ConcentratorMaterial,
@@ -19,6 +16,10 @@ import type {
   PhotovoltaicCell,
   SepCalculationInput,
 } from '../src/index';
+import {
+  effectiveMaxSepAreaM2,
+  maxAreaTickCount,
+} from '../src/generator/calculate-sep';
 
 const FIXTURE_CELL: PhotovoltaicCell = {
   id: 'fixture-fep',
@@ -247,25 +248,9 @@ describe('calculateSep', () => {
     expect(() =>
       calculateSep(fixtureInput({ maxPanelAreaM2: 1e308, panelCount: 10 })),
     ).toThrow(/S_max/);
-  });
-
-  it('rejects S_max at and above the 1_000_000 tick cap (100000 m²)', () => {
-    expect(maxAreaTickCount(100_000)).toBe(MAX_AREA_TICK_COUNT);
     expect(() =>
-      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000, panelCount: 1 })),
-    ).toThrow(SepCalculationError);
-    expect(() =>
-      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000, panelCount: 1 })),
-    ).toThrow(/100000/);
-    expect(() =>
-      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000.1, panelCount: 1 })),
-    ).toThrow(SepCalculationError);
-  });
-
-  it('keeps 99999.9 m² below the tick cap without enumerating it', () => {
-    // 99999.9 → 999_999 ticks, allowed. Do not call calculateSep here.
-    expect(maxAreaTickCount(99_999.9)).toBe(999_999);
-    expect(maxAreaTickCount(99_999.9)).toBeLessThan(MAX_AREA_TICK_COUNT);
+      calculateSep(fixtureInput({ maxPanelAreaM2: Number.MAX_VALUE, panelCount: 1 })),
+    ).toThrow(/S_max/);
   });
 
   it('throws SepCalculationError, not ParetoError, for empty or unknown paretoCriteria', () => {

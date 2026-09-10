@@ -41,7 +41,7 @@ export function createFepDraft(feps: readonly FepDraft[]): FepDraft {
   return {
     id,
     name: `ФЭП ${ordinal}`,
-    efficiencyPercent: '30',
+    efficiencyPercent: '',
   };
 }
 

@@ -8,11 +8,6 @@ const CORE_MESSAGE_MAP: readonly { pattern: RegExp; message: string }[] = [
       'Суммарная площадь S_max переполнилась: произведение площади панели и числа панелей слишком велико.',
   },
   {
-    pattern: /area tick count|MAX_AREA_TICK_COUNT/,
-    message:
-      'S_max слишком велика: превышен предел перебора площадей. Уменьшите площадь панели или количество панелей.',
-  },
-  {
     pattern: /altitudeKm/,
     message: 'Высота орбиты должна быть от 400 до 3600 км.',
   },

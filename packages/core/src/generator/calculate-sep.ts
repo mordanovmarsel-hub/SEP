@@ -29,15 +29,6 @@ const SEP_AREA_TICKS_PER_M2 = Math.round(1 / SEP_AREA_STEP_M2);
  */
 const AREA_TICK_INTEGER_EPS = 1e-12;
 
-/**
- * Maximum number of 0.1 m² area ticks the generator will enumerate.
- * `1_000_000` ticks means `S_max = 100_000` m²; that value and anything
- * larger is unphysical for v1 and would freeze the UI. Hard reject at
- * equality (`maxTick >= MAX_AREA_TICK_COUNT`), not a silent truncate.
- * `S_max = 99999.9` (999_999 ticks) stays below the cap.
- */
-export const MAX_AREA_TICK_COUNT = 1_000_000;
-
 interface AreaTick {
   tick: number;
   sepAreaM2: number;
@@ -238,9 +229,9 @@ export function calculateSep(input: SepCalculationInput): SepCalculationResult {
   }
 
   const maxTick = maxAreaTickCount(rawMaxSepAreaM2);
-  if (maxTick >= MAX_AREA_TICK_COUNT) {
+  if (!Number.isFinite(maxTick)) {
     throw new SepCalculationError(
-      `Invalid S_max: area tick count ${String(maxTick)} exceeds the ${String(MAX_AREA_TICK_COUNT)} cap (S_max >= 100000 m²)`,
+      `Invalid S_max: maxPanelAreaM2 * panelCount overflowed to ${String(rawMaxSepAreaM2)}`,
     );
   }
 

@@ -2,7 +2,7 @@ import {
   DEFAULT_PARETO_CRITERIA,
   PARETO_METRIC_SENSE,
 } from '../models';
-import type { ParetoMetric, ParetoSense, SepSolution } from '../models';
+import type { ParetoMetric, SepSolution } from '../models';
 
 export class ParetoError extends Error {
   constructor(message: string) {
@@ -39,36 +39,36 @@ function resolveCriteria(criteria: readonly ParetoMetric[] | undefined): ParetoM
   return resolved;
 }
 
-function isBetter(left: number, right: number, sense: ParetoSense): boolean {
-  return sense === 'minimize' ? left < right : left > right;
-}
-
-function isWorse(left: number, right: number, sense: ParetoSense): boolean {
-  return sense === 'minimize' ? left > right : left < right;
+function toMinimizeValues(
+  solution: SepSolution,
+  criteria: readonly ParetoMetric[],
+): number[] {
+  return criteria.map((metric) => {
+    const raw = solution[metric];
+    return PARETO_METRIC_SENSE[metric] === 'maximize' ? -raw : raw;
+  });
 }
 
 /**
- * A dominates B when A is no worse on every selected criterion and
- * strictly better on at least one, using {@link PARETO_METRIC_SENSE}.
- * Equal vectors never dominate each other (both stay non-dominated).
+ * A dominates B in minimize-space when A is <= on every coordinate
+ * and strictly < on at least one. Equal vectors do not dominate.
  */
-function dominates(
-  candidate: SepSolution,
-  other: SepSolution,
-  criteria: readonly ParetoMetric[],
+function dominatesMinimize(
+  candidate: readonly number[],
+  other: readonly number[],
 ): boolean {
   let strictlyBetter = false;
 
-  for (const metric of criteria) {
-    const sense = PARETO_METRIC_SENSE[metric];
-    const candidateValue = candidate[metric];
-    const otherValue = other[metric];
-
-    if (isWorse(candidateValue, otherValue, sense)) {
+  for (let index = 0; index < candidate.length; index += 1) {
+    const candidateValue = candidate[index];
+    const otherValue = other[index];
+    if (candidateValue === undefined || otherValue === undefined) {
       return false;
     }
-
-    if (isBetter(candidateValue, otherValue, sense)) {
+    if (candidateValue > otherValue) {
+      return false;
+    }
+    if (candidateValue < otherValue) {
       strictlyBetter = true;
     }
   }
@@ -76,17 +76,13 @@ function dominates(
   return strictlyBetter;
 }
 
-function isDominated(
-  solution: SepSolution,
-  solutions: readonly SepSolution[],
-  criteria: readonly ParetoMetric[],
-): boolean {
-  return solutions.some((other) => dominates(other, solution, criteria));
-}
-
 /**
  * Mark non-dominated solutions. Returns new objects in input order.
  * Does not mutate `solutions` or the objects inside it.
+ *
+ * Same dominance relation as the naive pairwise scan: lex-sort in
+ * minimize-space, then compare each point only to the current front.
+ * Ties stay mutually non-dominated.
  */
 export function markParetoSolutions(
   solutions: readonly SepSolution[],
@@ -94,8 +90,53 @@ export function markParetoSolutions(
 ): SepSolution[] {
   const resolvedCriteria = resolveCriteria(criteria);
 
-  return solutions.map((solution) => ({
+  if (resolvedCriteria.length === 0) {
+    return solutions.map((solution) => ({ ...solution, isPareto: true }));
+  }
+
+  const values = solutions.map((solution) => toMinimizeValues(solution, resolvedCriteria));
+  const order = solutions.map((_, index) => index);
+  order.sort((left, right) => {
+    const leftValues = values[left];
+    const rightValues = values[right];
+    if (leftValues === undefined || rightValues === undefined) {
+      return left - right;
+    }
+    for (let index = 0; index < leftValues.length; index += 1) {
+      const delta = (leftValues[index] ?? 0) - (rightValues[index] ?? 0);
+      if (delta !== 0) {
+        return delta;
+      }
+    }
+    return left - right;
+  });
+
+  const isPareto = solutions.map(() => false);
+  const front: number[] = [];
+
+  for (const index of order) {
+    const current = values[index];
+    if (current === undefined) {
+      continue;
+    }
+
+    let dominated = false;
+    for (const frontIndex of front) {
+      const frontValues = values[frontIndex];
+      if (frontValues !== undefined && dominatesMinimize(frontValues, current)) {
+        dominated = true;
+        break;
+      }
+    }
+
+    if (!dominated) {
+      isPareto[index] = true;
+      front.push(index);
+    }
+  }
+
+  return solutions.map((solution, index) => ({
     ...solution,
-    isPareto: !isDominated(solution, solutions, resolvedCriteria),
+    isPareto: isPareto[index] === true,
   }));
 }
