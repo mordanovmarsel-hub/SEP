@@ -81,13 +81,6 @@ export function ResultsTable({
                   ref={selected ? selectedRowRef : undefined}
                   className={selected ? 'is-selected' : undefined}
                   onClick={() => onSelect(solution.id)}
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      onSelect(solution.id);
-                    }
-                  }}
                 >
                   <td>{solution.photovoltaicCellName}</td>
                   <td>{formatStructure(solution.structureType)}</td>

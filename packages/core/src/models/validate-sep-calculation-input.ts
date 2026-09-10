@@ -5,14 +5,17 @@ import {
   MIN_FEP_EFFICIENCY_EXCLUSIVE,
 } from './constants';
 import { SepCalculationError } from './errors';
-import type {
-  ConcentratorMaterial,
-  PhotovoltaicCell,
-  SepCalculationInput,
-  StructureType,
+import {
+  DEFAULT_PARETO_CRITERIA,
+  type ConcentratorMaterial,
+  type ParetoMetric,
+  type PhotovoltaicCell,
+  type SepCalculationInput,
+  type StructureType,
 } from './types';
 
 const STRUCTURE_TYPES = new Set<StructureType>(['honeycomb', 'frame']);
+const KNOWN_PARETO_METRICS = new Set<string>(DEFAULT_PARETO_CRITERIA);
 
 function requireFiniteNumber(value: number, label: string, constraint: string): void {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -121,6 +124,30 @@ function requireStructureType(value: StructureType, index: number): void {
   }
 }
 
+function requireParetoCriteria(criteria: readonly ParetoMetric[]): void {
+  if (!Array.isArray(criteria)) {
+    throw new SepCalculationError(
+      `Invalid paretoCriteria: expected an array of known metrics, received ${String(criteria)}`,
+    );
+  }
+
+  if (criteria.length === 0) {
+    throw new SepCalculationError(
+      'Invalid paretoCriteria: expected a non-empty array of known metrics, or omit the field for the default trio',
+    );
+  }
+
+  criteria.forEach((metric, index) => {
+    if (!KNOWN_PARETO_METRICS.has(metric)) {
+      throw new SepCalculationError(
+        `Invalid paretoCriteria[${String(index)}]: unknown metric '${String(metric)}'`,
+      );
+    }
+  });
+
+  requireUniqueIds(criteria, 'paretoCriteria');
+}
+
 /**
  * Validates top-level `calculateSep` input. Throws {@link SepCalculationError}.
  * Does not clamp or silently correct values.
@@ -156,6 +183,11 @@ export function validateSepCalculationInput(input: SepCalculationInput): void {
   }
 
   input.structures.forEach(requireStructureType);
+  requireUniqueIds(input.structures, 'structures');
+
+  if (input.paretoCriteria !== undefined) {
+    requireParetoCriteria(input.paretoCriteria);
+  }
 
   if (!Array.isArray(input.concentratorMaterials)) {
     throw new SepCalculationError(

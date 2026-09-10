@@ -56,8 +56,8 @@ export interface SepCalculationInput {
 }
 
 /**
- * One feasible configuration. `id` is a deterministic encoding of
- * FEP + structure + material/null + H + K + S_SEP — never random.
+ * One feasible configuration. `id` is a deterministic JSON-array encoding of
+ * FEP + structure + material/null + H + K + integer area tick — never random.
  *
  * derived:
  * - fepAreaM2 = sepAreaM2 / concentration

@@ -3,7 +3,7 @@ import {
   SepCalculationError,
   validateSepCalculationInput,
 } from '../src/index';
-import type { SepCalculationInput } from '../src/index';
+import type { ParetoMetric, SepCalculationInput } from '../src/index';
 
 const VALID_INPUT: SepCalculationInput = {
   altitudeKm: 1200,
@@ -170,6 +170,40 @@ describe('validateSepCalculationInput', () => {
       }),
       /duplicate id 'bk7'/,
     );
+  });
+
+  it('rejects duplicate structures', () => {
+    expectInvalid(
+      validInput({ structures: ['honeycomb', 'honeycomb'] }),
+      /duplicate id 'honeycomb'/,
+    );
+    expectInvalid(
+      validInput({ structures: ['frame', 'honeycomb', 'frame'] }),
+      /duplicate id 'frame'/,
+    );
+  });
+
+  it('rejects an empty, unknown or duplicate paretoCriteria list', () => {
+    expectInvalid(validInput({ paretoCriteria: [] }), /paretoCriteria/);
+    expectInvalid(
+      validInput({
+        paretoCriteria: ['notAMetric' as unknown as ParetoMetric],
+      }),
+      /paretoCriteria/,
+    );
+    expectInvalid(
+      validInput({
+        paretoCriteria: ['totalMassKg', 'totalMassKg'],
+      }),
+      /duplicate id 'totalMassKg'/,
+    );
+  });
+
+  it('accepts omitted paretoCriteria and a unique known subset', () => {
+    expect(() => validateSepCalculationInput(validInput())).not.toThrow();
+    expect(() =>
+      validateSepCalculationInput(validInput({ paretoCriteria: ['totalMassKg'] })),
+    ).not.toThrow();
   });
 
   it('does not clamp out-of-range values', () => {

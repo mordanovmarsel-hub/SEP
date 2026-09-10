@@ -214,6 +214,42 @@ describe('generator enumeration', () => {
     expect(areas.includes(0.3)).toBe(false);
   });
 
+  it('includes 0.9 for 0.3*3 the same as for 0.9*1', () => {
+    const expectedAreas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+    const fromProduct = [
+      ...new Set(
+        calculateSep(softInput({ maxPanelAreaM2: 0.3, panelCount: 3 })).solutions.map(
+          (solution) => solution.sepAreaM2,
+        ),
+      ),
+    ].sort((left, right) => left - right);
+    const fromSingle = [
+      ...new Set(
+        calculateSep(softInput({ maxPanelAreaM2: 0.9, panelCount: 1 })).solutions.map(
+          (solution) => solution.sepAreaM2,
+        ),
+      ),
+    ].sort((left, right) => left - right);
+
+    expect(fromProduct).toEqual(expectedAreas);
+    expect(fromSingle).toEqual(expectedAreas);
+    expect(fromProduct).toEqual(fromSingle);
+  });
+
+  it('stops at 0.2 when S_max is 0.25, never emitting 0.3', () => {
+    const areas = [
+      ...new Set(
+        calculateSep(softInput({ maxPanelAreaM2: 0.25, panelCount: 1 })).solutions.map(
+          (solution) => solution.sepAreaM2,
+        ),
+      ),
+    ].sort((left, right) => left - right);
+
+    expect(areas.at(-1)).toBe(0.2);
+    expect(areas).toEqual([0.1, 0.2]);
+    expect(areas.includes(0.3)).toBe(false);
+  });
+
   it('sets S_FEP = S_SEP / K on every solution', () => {
     const result = calculateSep(softInput());
 

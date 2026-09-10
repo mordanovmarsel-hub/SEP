@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   GENERATOR_CONCENTRATIONS,
+  ParetoError,
   SepCalculationError,
   calculateAverageCosine,
   calculateAveragePower,
@@ -11,6 +12,7 @@ import {
 } from '../src/index';
 import type {
   ConcentratorMaterial,
+  ParetoMetric,
   PhotovoltaicCell,
   SepCalculationInput,
 } from '../src/index';
@@ -72,7 +74,12 @@ function expectInvariants(result: ReturnType<typeof calculateSep>, input: SepCal
     expect(solution.fepAreaM2).toBe(solution.sepAreaM2 / solution.concentration);
     expect(solution.specificMassKgPerM2).toBe(solution.totalMassKg / solution.sepAreaM2);
     expect(solution.powerToMassWPerKg).toBe(solution.averagePowerW / solution.totalMassKg);
+    expect(solution.averagePowerW).toBeGreaterThanOrEqual(input.requiredPowerW);
+    expect(solution.totalMassKg).toBeLessThanOrEqual(input.maxMassKg);
     expect(solution.sepAreaM2).toBeLessThanOrEqual(maxSepAreaM2);
+    expect(solution.powerMarginW).toBe(solution.averagePowerW - input.requiredPowerW);
+    expect(solution.massMarginKg).toBe(input.maxMassKg - solution.totalMassKg);
+    expect(solution.areaMarginM2).toBe(maxSepAreaM2 - solution.sepAreaM2);
     expect(solution.sepAreaM2).toBeGreaterThan(0);
     expect(solution.altitudeKm).toBe(input.altitudeKm);
     expect(solution.concentration).toBeGreaterThanOrEqual(1);
@@ -127,6 +134,94 @@ describe('calculateSep', () => {
         frame.filter((solution) => solution.concentration >= 2),
       ).toHaveLength(32);
     });
+
+    it('still counts totalGenerated = 40 when S_max is exactly 0.2 * 1', () => {
+      const result = calculateSep(fixtureInput({ maxPanelAreaM2: 0.2, panelCount: 1 }));
+
+      expect(result.totalGenerated).toBe(40);
+      expect(
+        [...new Set(result.solutions.map((solution) => solution.sepAreaM2))].sort(
+          (left, right) => left - right,
+        ),
+      ).toEqual([0.1, 0.2]);
+    });
+  });
+
+  it('includes 0.9 for both 0.3*3 and 0.9*1 (IEEE product must not drop the last tick)', () => {
+    const expectedAreas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+    const fromProduct = calculateSep(
+      fixtureInput({ maxPanelAreaM2: 0.3, panelCount: 3 }),
+    );
+    const fromSingle = calculateSep(
+      fixtureInput({ maxPanelAreaM2: 0.9, panelCount: 1 }),
+    );
+    const productAreas = [
+      ...new Set(fromProduct.solutions.map((solution) => solution.sepAreaM2)),
+    ].sort((left, right) => left - right);
+    const singleAreas = [
+      ...new Set(fromSingle.solutions.map((solution) => solution.sepAreaM2)),
+    ].sort((left, right) => left - right);
+
+    expect(productAreas).toEqual(expectedAreas);
+    expect(singleAreas).toEqual(expectedAreas);
+    expect(productAreas).toEqual(singleAreas);
+    expect(fromProduct.totalGenerated).toBe(fromSingle.totalGenerated);
+    expect(fromProduct.totalGenerated).toBe(180);
+  });
+
+  it('does not round 0.25 up: last tick is 0.2, not 0.3', () => {
+    const result = calculateSep(fixtureInput({ maxPanelAreaM2: 0.25, panelCount: 1 }));
+    const areas = [
+      ...new Set(result.solutions.map((solution) => solution.sepAreaM2)),
+    ].sort((left, right) => left - right);
+
+    expect(areas.at(-1)).toBe(0.2);
+    expect(areas.includes(0.3)).toBe(false);
+    expect(areas).toEqual([0.1, 0.2]);
+    expect(result.totalGenerated).toBe(40);
+  });
+
+  it('throws SepCalculationError when S_max overflows to non-finite', () => {
+    expect(() =>
+      calculateSep(fixtureInput({ maxPanelAreaM2: Number.MAX_VALUE, panelCount: 2 })),
+    ).toThrow(SepCalculationError);
+    expect(() =>
+      calculateSep(fixtureInput({ maxPanelAreaM2: 1e308, panelCount: 10 })),
+    ).toThrow(/S_max/);
+  });
+
+  it('rejects unphysical S_max just above the 1_000_000 tick cap', () => {
+    expect(() =>
+      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000.1, panelCount: 1 })),
+    ).toThrow(SepCalculationError);
+    expect(() =>
+      calculateSep(fixtureInput({ maxPanelAreaM2: 100_000.1, panelCount: 1 })),
+    ).toThrow(/100000/);
+  });
+
+  it('throws SepCalculationError, not ParetoError, for empty or unknown paretoCriteria', () => {
+    const emptyCases: Array<() => void> = [
+      () => {
+        calculateSep(fixtureInput({ paretoCriteria: [] }));
+      },
+      () => {
+        calculateSep(
+          fixtureInput({
+            paretoCriteria: ['notAMetric' as unknown as ParetoMetric],
+          }),
+        );
+      },
+    ];
+
+    for (const run of emptyCases) {
+      try {
+        run();
+        expect.unreachable('invalid paretoCriteria must throw');
+      } catch (error) {
+        expect(error).toBeInstanceOf(SepCalculationError);
+        expect(error).not.toBeInstanceOf(ParetoError);
+      }
+    }
   });
 
   it('wires cosine, power, mass, constraints and Pareto without ad-hoc margins', () => {
@@ -239,6 +334,9 @@ describe('calculateSep', () => {
     expect(() => calculateSep(fixtureInput({ photovoltaicCells: [] }))).toThrow(
       SepCalculationError,
     );
+    expect(() =>
+      calculateSep(fixtureInput({ structures: ['honeycomb', 'honeycomb'] })),
+    ).toThrow(SepCalculationError);
   });
 
   it('uses unique deterministic ids derived from FEP, structure, material, H, K and area tick', () => {
@@ -246,7 +344,9 @@ describe('calculateSep', () => {
     const ids = result.solutions.map((solution) => solution.id);
 
     expect(new Set(ids).size).toBe(ids.length);
-    expect(result.solutions[0]?.id).toBe('fixture-fep|honeycomb|null|1200|1|1');
+    expect(result.solutions[0]?.id).toBe(
+      JSON.stringify(['fixture-fep', 'honeycomb', null, 1200, 1, 1]),
+    );
     expect(
       result.solutions.find(
         (solution) =>
@@ -255,7 +355,38 @@ describe('calculateSep', () => {
           solution.concentratorMaterialId === 'glass-a' &&
           solution.sepAreaM2 === 0.2,
       )?.id,
-    ).toBe('fixture-fep|frame|glass-a|1200|2|2');
+    ).toBe(JSON.stringify(['fixture-fep', 'frame', 'glass-a', 1200, 2, 2]));
+  });
+
+  it('does not collide when FEP or material ids contain a pipe', () => {
+    const left = calculateSep(
+      fixtureInput({
+        photovoltaicCells: [{ id: 'x|frame', name: 'Left', efficiency: 0.3 }],
+        concentratorMaterials: [{ id: 'y', name: 'Y', densityGPerCm3: 2.2 }],
+        structures: ['frame'],
+        maxPanelAreaM2: 0.1,
+        panelCount: 1,
+      }),
+    );
+    const right = calculateSep(
+      fixtureInput({
+        photovoltaicCells: [{ id: 'x', name: 'Right', efficiency: 0.3 }],
+        concentratorMaterials: [{ id: 'frame|y', name: 'Y', densityGPerCm3: 2.2 }],
+        structures: ['frame'],
+        maxPanelAreaM2: 0.1,
+        panelCount: 1,
+      }),
+    );
+    const leftK2 = left.solutions.find((solution) => solution.concentration === 2);
+    const rightK2 = right.solutions.find((solution) => solution.concentration === 2);
+
+    expect(leftK2?.id).toBe(
+      JSON.stringify(['x|frame', 'frame', 'y', 1200, 2, 1]),
+    );
+    expect(rightK2?.id).toBe(
+      JSON.stringify(['x', 'frame', 'frame|y', 1200, 2, 1]),
+    );
+    expect(leftK2?.id).not.toBe(rightK2?.id);
   });
 
   it('keeps totalFeasible === solutions.length after filtering', () => {
@@ -297,13 +428,23 @@ describe('calculateSep property-style invariant grid', () => {
             expectInvariants(result, input);
 
             for (const solution of result.solutions) {
+              const maxSepAreaM2 = input.maxPanelAreaM2 * input.panelCount;
+              expect(solution.averagePowerW).toBeGreaterThanOrEqual(input.requiredPowerW);
+              expect(solution.totalMassKg).toBeLessThanOrEqual(input.maxMassKg);
+              expect(solution.sepAreaM2).toBeLessThanOrEqual(maxSepAreaM2);
+              expect(solution.powerMarginW).toBe(
+                solution.averagePowerW - input.requiredPowerW,
+              );
+              expect(solution.massMarginKg).toBe(input.maxMassKg - solution.totalMassKg);
+              expect(solution.areaMarginM2).toBe(maxSepAreaM2 - solution.sepAreaM2);
+
               const constraints = evaluateConstraints({
                 averagePowerW: solution.averagePowerW,
                 requiredPowerW: input.requiredPowerW,
                 totalMassKg: solution.totalMassKg,
                 maxMassKg: input.maxMassKg,
                 sepAreaM2: solution.sepAreaM2,
-                maxSepAreaM2: input.maxPanelAreaM2 * input.panelCount,
+                maxSepAreaM2,
                 altitudeKm: input.altitudeKm,
                 concentration: solution.concentration,
                 structureType: solution.structureType,

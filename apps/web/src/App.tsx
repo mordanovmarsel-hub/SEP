@@ -34,6 +34,12 @@ export default function App() {
     setSelectedId(id);
   }, []);
 
+  function handleFormChange(value: CalculationFormValues): void {
+    setForm(value);
+    setCalculation({ status: 'idle' });
+    setSelectedId(null);
+  }
+
   function handleCalculate(): void {
     try {
       const input = buildCalculationInput(form);
@@ -66,7 +72,7 @@ export default function App() {
         </p>
       </header>
 
-      <CalculationForm value={form} onChange={setForm} onSubmit={handleCalculate} />
+      <CalculationForm value={form} onChange={handleFormChange} onSubmit={handleCalculate} />
 
       {calculation.status === 'error' ? (
         <p className="error" role="alert" data-testid="error-message">

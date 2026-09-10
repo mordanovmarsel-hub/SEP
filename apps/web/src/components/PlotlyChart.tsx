@@ -1,19 +1,13 @@
 import { useEffect, useRef } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import type { Config, Data, Layout, PlotMouseEvent } from 'plotly.js-dist-min';
+import { readSolutionId } from '../lib/read-solution-id.ts';
 
 interface PlotlyChartProps {
   data: Data[];
   layout: Partial<Layout>;
   config?: Partial<Config>;
   onPointClick?: (solutionId: string) => void;
-}
-
-function readSolutionId(customdata: PlotMouseEvent['points'][number]['customdata']): string | null {
-  if (typeof customdata === 'string' && customdata !== '') {
-    return customdata;
-  }
-  return null;
 }
 
 export function PlotlyChart({ data, layout, config, onPointClick }: PlotlyChartProps) {
@@ -28,25 +22,29 @@ export function PlotlyChart({ data, layout, config, onPointClick }: PlotlyChartP
     let cancelled = false;
 
     const render = async (): Promise<void> => {
-      const graph = await Plotly.react(element, data, layout, config);
-      if (cancelled) {
-        Plotly.purge(graph);
-        return;
-      }
-
-      graph.on('plotly_click', (event: PlotMouseEvent) => {
-        const point = event.points[0];
-        if (!point || !onPointClick) {
+      try {
+        const graph = await Plotly.react(element, data, layout, config);
+        if (cancelled) {
+          Plotly.purge(graph);
           return;
         }
-        const solutionId = readSolutionId(point.customdata);
-        if (solutionId) {
-          onPointClick(solutionId);
-        }
-      });
+
+        graph.on('plotly_click', (event: PlotMouseEvent) => {
+          const point = event.points[0];
+          if (!point || !onPointClick) {
+            return;
+          }
+          const solutionId = readSolutionId(point.customdata);
+          if (solutionId) {
+            onPointClick(solutionId);
+          }
+        });
+      } catch {
+        // Keep the empty container; do not leave an unhandled rejection.
+      }
     };
 
-    void render();
+    void render().catch(() => undefined);
 
     const handleResize = (): void => {
       void Plotly.Plots.resize(element);

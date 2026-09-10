@@ -65,7 +65,7 @@ test('public v1 contracts are constructible and CONSTANT-only', () => {
     paretoCriteria: DEFAULT_PARETO_CRITERIA,
   };
   const solution: SepSolution = {
-    id: 'user-fep|honeycomb|null|1200|1|0.1',
+    id: JSON.stringify(['user-fep', 'honeycomb', null, 1200, 1, 1]),
     photovoltaicCellId: cell.id,
     photovoltaicCellName: cell.name,
     fepEfficiency: cell.efficiency,

@@ -4,6 +4,7 @@ import { calculateMass } from '../mass';
 import {
   GENERATOR_CONCENTRATIONS,
   SEP_AREA_STEP_M2,
+  SepCalculationError,
   validateSepCalculationInput,
 } from '../models';
 import type {
@@ -14,11 +15,24 @@ import type {
   SepSolution,
   StructureType,
 } from '../models';
-import { markParetoSolutions } from '../pareto';
+import { ParetoError, markParetoSolutions } from '../pareto';
 import { calculateAveragePower } from '../power';
 
 /** Integer ticks per m² so `sepAreaM2 = tick / SEP_AREA_TICKS_PER_M2`. */
 const SEP_AREA_TICKS_PER_M2 = Math.round(1 / SEP_AREA_STEP_M2);
+
+/**
+ * Treat `S_max * 10` as an integer tick count when IEEE rounding left it
+ * within this epsilon of a whole number (e.g. `0.3 * 3 → 8.999… → 9`).
+ */
+const AREA_TICK_INTEGER_EPS = 1e-9;
+
+/**
+ * Maximum number of 0.1 m² area ticks the generator will enumerate.
+ * `1_000_000` ticks means `S_max = 100_000` m²; anything larger is unphysical
+ * for v1 and would freeze the UI. This is a hard reject, not a silent truncate.
+ */
+const MAX_AREA_TICK_COUNT = 1_000_000;
 
 interface AreaTick {
   tick: number;
@@ -37,18 +51,45 @@ interface CandidateContext {
 }
 
 /**
- * Area ticks `1, 2, …` while `tick / 10 <= S_max`.
- * Never increments a float area and never rounds `S_max` up.
+ * Last included integer tick for `S_max`.
+ * Near-integer `S_max * 10` snaps to that integer so `0.3 * 3` yields 9.
+ * Otherwise `Math.floor`, so `0.25` stays at tick 2 and does not become 0.3.
+ */
+function maxAreaTickFromSmax(maxSepAreaM2: number): number {
+  const scaled = maxSepAreaM2 * SEP_AREA_TICKS_PER_M2;
+  const nearest = Math.round(scaled);
+  if (Math.abs(scaled - nearest) <= AREA_TICK_INTEGER_EPS) {
+    return nearest;
+  }
+  return Math.floor(scaled);
+}
+
+/**
+ * `S_max` used for constraints/margins. When the raw product is within
+ * {@link AREA_TICK_INTEGER_EPS} of an integer tick, use that tick / 10
+ * so `0.3 * 3` is treated as `0.9` (last step included and feasible).
+ * Non-grid values such as `0.25` stay unchanged.
+ */
+function effectiveMaxSepAreaM2(maxSepAreaM2: number): number {
+  const scaled = maxSepAreaM2 * SEP_AREA_TICKS_PER_M2;
+  const nearest = Math.round(scaled);
+  if (Math.abs(scaled - nearest) <= AREA_TICK_INTEGER_EPS) {
+    return nearest / SEP_AREA_TICKS_PER_M2;
+  }
+  return maxSepAreaM2;
+}
+
+/**
+ * Area ticks `1 .. maxTick` from an integer bound.
+ * Never increments a float area, never compares `tick / 10` to a float
+ * product, and never rounds a non-near-integer `S_max` up.
  * `S_max < 0.1` yields an empty list.
  */
 function enumerateAreaTicks(maxSepAreaM2: number): AreaTick[] {
+  const maxTick = maxAreaTickFromSmax(maxSepAreaM2);
   const ticks: AreaTick[] = [];
 
-  for (
-    let tick = 1;
-    tick / SEP_AREA_TICKS_PER_M2 <= maxSepAreaM2;
-    tick += 1
-  ) {
+  for (let tick = 1; tick <= maxTick; tick += 1) {
     ticks.push({
       tick,
       sepAreaM2: tick / SEP_AREA_TICKS_PER_M2,
@@ -61,6 +102,7 @@ function enumerateAreaTicks(maxSepAreaM2: number): AreaTick[] {
 /**
  * Deterministic id from FEP, structure, material/null, H, K and the
  * integer area tick (tenths of m²) so `0.1` and `0.10` collide.
+ * Encoded as a JSON array so `|` inside an id cannot smash fields together.
  */
 function buildSolutionId(
   cellId: string,
@@ -70,14 +112,14 @@ function buildSolutionId(
   concentration: number,
   areaTick: number,
 ): string {
-  return [
+  return JSON.stringify([
     cellId,
     structureType,
-    materialId ?? 'null',
-    String(altitudeKm),
-    String(concentration),
-    String(areaTick),
-  ].join('|');
+    materialId,
+    altitudeKm,
+    concentration,
+    areaTick,
+  ]);
 }
 
 function evaluateCandidate(context: CandidateContext): SepSolution | null {
@@ -184,8 +226,22 @@ function evaluateCandidate(context: CandidateContext): SepSolution | null {
 export function calculateSep(input: SepCalculationInput): SepCalculationResult {
   validateSepCalculationInput(input);
 
-  const maxSepAreaM2 = input.maxPanelAreaM2 * input.panelCount;
-  const areaTicks = enumerateAreaTicks(maxSepAreaM2);
+  const rawMaxSepAreaM2 = input.maxPanelAreaM2 * input.panelCount;
+  if (!Number.isFinite(rawMaxSepAreaM2)) {
+    throw new SepCalculationError(
+      `Invalid S_max: maxPanelAreaM2 * panelCount overflowed to ${String(rawMaxSepAreaM2)}`,
+    );
+  }
+
+  const maxTick = maxAreaTickFromSmax(rawMaxSepAreaM2);
+  if (maxTick > MAX_AREA_TICK_COUNT) {
+    throw new SepCalculationError(
+      `Invalid S_max: area tick count ${String(maxTick)} exceeds the ${String(MAX_AREA_TICK_COUNT)} cap (S_max > 100000 m²)`,
+    );
+  }
+
+  const maxSepAreaM2 = effectiveMaxSepAreaM2(rawMaxSepAreaM2);
+  const areaTicks = enumerateAreaTicks(rawMaxSepAreaM2);
   const feasible: SepSolution[] = [];
   let totalGenerated = 0;
 
@@ -243,7 +299,15 @@ export function calculateSep(input: SepCalculationInput): SepCalculationResult {
     }
   }
 
-  const solutions = markParetoSolutions(feasible, input.paretoCriteria);
+  let solutions: SepSolution[];
+  try {
+    solutions = markParetoSolutions(feasible, input.paretoCriteria);
+  } catch (error) {
+    if (error instanceof ParetoError) {
+      throw new SepCalculationError(error.message);
+    }
+    throw error;
+  }
 
   return {
     solutions,

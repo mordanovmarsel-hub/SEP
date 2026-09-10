@@ -21,6 +21,7 @@ export function CalculationForm({ value, onChange, onSubmit }: CalculationFormPr
   return (
     <form
       className="calculation-form"
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
