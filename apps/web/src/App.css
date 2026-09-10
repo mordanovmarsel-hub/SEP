@@ -1,14 +1,249 @@
 .app {
   box-sizing: border-box;
   margin: 0 auto;
-  max-width: 40rem;
-  padding: 4rem 1.5rem;
+  max-width: 80rem;
+  padding: 2rem 1.25rem 4rem;
 }
 
-.status {
-  margin-top: 1.5rem;
+.app-header h1 {
+  margin-bottom: 0.75rem;
 }
 
-.status code {
-  font-family: ui-monospace, Consolas, monospace;
+.app-header p + p {
+  margin-top: 0.75rem;
+}
+
+.notice,
+.error,
+.empty,
+.hint,
+.muted {
+  color: #4b5563;
+}
+
+.notice,
+.error,
+.empty {
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+}
+
+.notice {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+}
+
+.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  margin: 1rem 0 0;
+}
+
+.empty {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  margin: 1rem 0 0;
+}
+
+.hint {
+  font-size: 0.92rem;
+  margin-bottom: 0.85rem;
+}
+
+.muted {
+  font-size: 0.85em;
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.panel h2,
+.panel legend {
+  font-size: 1.05rem;
+  font-weight: 650;
+  margin: 0 0 0.65rem;
+}
+
+.panel fieldset {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.calculation-form {
+  margin-top: 0.5rem;
+}
+
+.field-grid,
+.summary-grid,
+.filter-grid,
+.range-grid {
+  display: grid;
+  gap: 0.85rem 1rem;
+}
+
+.field-grid {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.summary-grid dt {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.summary-grid dd {
+  font-size: 1.2rem;
+  font-weight: 650;
+  margin: 0.15rem 0 0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+}
+
+input[type='text'],
+input[type='number'] {
+  border: 1px solid #d1d5db;
+  border-radius: 0.45rem;
+  font: inherit;
+  padding: 0.45rem 0.55rem;
+}
+
+.fep-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0 0 0.85rem;
+  padding: 0;
+}
+
+.fep-row {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) 8rem auto;
+}
+
+.check-row {
+  display: flex;
+  gap: 0.85rem 1.25rem;
+}
+
+.check-row.wrap,
+.filter-grid {
+  flex-wrap: wrap;
+}
+
+.check {
+  align-items: center;
+  flex-direction: row;
+  gap: 0.4rem;
+}
+
+.pareto-filter {
+  margin: 0.9rem 0;
+}
+
+.range-inputs {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.button-primary,
+.button-secondary,
+.sort-button {
+  border: 0;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.button-primary {
+  background: #1d4ed8;
+  color: #fff;
+  font-weight: 650;
+  margin-top: 1.1rem;
+  padding: 0.7rem 1.2rem;
+}
+
+.button-secondary {
+  background: #e5e7eb;
+  padding: 0.5rem 0.75rem;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.results-table {
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  min-width: 72rem;
+  width: 100%;
+}
+
+.results-table th,
+.results-table td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.45rem 0.5rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.results-table tbody tr {
+  cursor: pointer;
+}
+
+.results-table tbody tr:hover,
+.results-table tbody tr.is-selected {
+  background: #eff6ff;
+}
+
+.sort-button {
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+
+.pareto-badge {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  border-radius: 999px;
+  color: #9a3412;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.1rem 0.5rem;
+}
+
+.plotly-root {
+  height: 28rem;
+  min-height: 22rem;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .fep-row {
+    grid-template-columns: 1fr;
+  }
+
+  .app {
+    padding: 1.25rem 0.85rem 3rem;
+  }
 }
