@@ -139,6 +139,26 @@ input[type='number'] {
   grid-template-columns: minmax(0, 1fr) 8rem auto;
 }
 
+.fep-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.fep-import-hint {
+  margin-top: 0.75rem;
+}
+
+.import-status {
+  color: #166534;
+  margin: 0.75rem 0 0;
+}
+
+.pareto-explanation ul {
+  margin: 0.2rem 0 0;
+  padding-left: 1.25rem;
+}
+
 .check-row {
   display: flex;
   gap: 0.85rem 1.25rem;

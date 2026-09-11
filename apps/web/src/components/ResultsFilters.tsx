@@ -58,7 +58,10 @@ export function ResultsFilters({ solutions, value, onChange }: ResultsFiltersPro
   const materialOptions: NamedOption<string | null>[] = uniqueBy(
     solutions.map((solution) => ({
       value: solution.concentratorMaterialId,
-      label: formatMaterialName(solution.concentratorMaterialName),
+      label: formatMaterialName(
+        solution.concentratorMaterialName,
+        solution.concentration,
+      ),
     })),
     (option) => option.value ?? '__none__',
   );
