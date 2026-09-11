@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { calculateSep } from '@sep/core';
 import type { SepCalculationResult } from '@sep/core';
 import { CalculationForm } from './components/CalculationForm.tsx';
+import { ParetoExplanation } from './components/ParetoExplanation.tsx';
 import { ResultsChart } from './components/ResultsChart.tsx';
 import { ResultsFilters } from './components/ResultsFilters.tsx';
 import { ResultsTable } from './components/ResultsTable.tsx';
@@ -83,6 +84,7 @@ export default function App() {
       {calculation.status === 'success' && summary ? (
         <>
           <Summary summary={summary} />
+          <ParetoExplanation />
 
           {calculation.result.totalFeasible === 0 ? (
             <p className="empty" data-testid="empty-results" role="status">

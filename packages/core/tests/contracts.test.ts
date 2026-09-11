@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 import {
   CONSTRAINT_VIOLATION_ORDER,
@@ -124,4 +125,28 @@ test('public v1 contracts are constructible and CONSTANT-only', () => {
       STRUCTURE_MAX_CONCENTRATION[structureType],
   };
   expect(constraintsApi.maxConcentrationForStructure('honeycomb')).toBe(2.3);
+});
+
+test('@sep/core stays free of CSV parsing, File API and React', () => {
+  const pkg = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  ) as {
+    dependencies?: Record<string, string>;
+    peerDependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+
+  const allDeps = {
+    ...pkg.dependencies,
+    ...pkg.peerDependencies,
+    ...pkg.devDependencies,
+  };
+
+  expect(pkg.dependencies ?? {}).toEqual({});
+  expect(allDeps.papaparse).toBeUndefined();
+  expect(allDeps.react).toBeUndefined();
+  expect(allDeps['react-dom']).toBeUndefined();
+
+  const indexSource = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+  expect(indexSource).not.toMatch(/papaparse|Papa\.parse|FileReader|from ['"]react['"]/);
 });

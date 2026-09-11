@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react';
+import { applyCsvImport } from '../lib/csv.ts';
 import { createFepDraft, type FepDraft } from '../lib/form.ts';
 
 interface FepEditorProps {
@@ -6,6 +8,10 @@ interface FepEditorProps {
 }
 
 export function FepEditor({ feps, onChange }: FepEditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+
   function updateFep(id: string, patch: Partial<FepDraft>): void {
     onChange(
       feps.map((fep) => (fep.id === id ? { ...fep, ...patch } : fep)),
@@ -20,12 +26,27 @@ export function FepEditor({ feps, onChange }: FepEditorProps) {
     onChange([...feps, createFepDraft(feps)]);
   }
 
+  async function handleCsvFile(file: File): Promise<void> {
+    const text = await file.text();
+    const result = applyCsvImport(feps, file.name, text);
+    if (result.error !== null) {
+      setImportError(result.error);
+      setImportStatus(null);
+      return;
+    }
+
+    onChange(result.feps);
+    setImportError(null);
+    setImportStatus(result.status);
+  }
+
   return (
     <fieldset className="panel">
       <legend>ФЭП</legend>
       <p className="hint">
-        Каталога готовых элементов нет — задайте название и КПД самостоятельно.
-        КПД вводится в процентах (например 30 → в расчёт уходит 0.30).
+        Каталога готовых элементов нет — задайте название и КПД самостоятельно
+        или загрузите локальный CSV. КПД вводится в процентах (например 30 → в
+        расчёт уходит 0.30).
       </p>
       <ul className="fep-list">
         {feps.map((fep, index) => (
@@ -65,9 +86,49 @@ export function FepEditor({ feps, onChange }: FepEditorProps) {
           </li>
         ))}
       </ul>
-      <button type="button" className="button-secondary" onClick={addFep}>
-        Добавить ФЭП
-      </button>
+      <div className="fep-actions">
+        <button type="button" className="button-secondary" onClick={addFep}>
+          Добавить ФЭП
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          data-testid="import-csv-button"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Загрузить CSV
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          aria-label="Файл CSV с ФЭП"
+          data-testid="import-csv-input"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (file !== undefined) {
+              void handleCsvFile(file);
+            }
+          }}
+        />
+      </div>
+      <p className="hint fep-import-hint">
+        Ожидаемые колонки: <code>name,efficiencyPercent</code> или русские
+        заголовки «Название» / «ФЭП» и «КПД» / «КПД %». Разделитель — запятая.
+        XLS/XLSX не поддерживаются. Файл обрабатывается только в браузере.
+      </p>
+      {importError !== null ? (
+        <p className="error" role="alert" data-testid="csv-import-error">
+          {importError}
+        </p>
+      ) : null}
+      {importStatus !== null ? (
+        <p className="import-status" role="status" data-testid="csv-import-status">
+          {importStatus}
+        </p>
+      ) : null}
     </fieldset>
   );
 }
