@@ -33,8 +33,16 @@ export function formatEfficiencyPercent(fraction: number): string {
   return `${(fraction * 100).toFixed(1)}%`;
 }
 
-export function formatMaterialName(name: string | null): string {
-  return name ?? '—';
+export const CONCENTRATOR_ABSENT_LABEL = 'Концентратор отсутствует';
+
+export function formatMaterialName(
+  name: string | null,
+  concentration?: number,
+): string {
+  if (concentration === 1 || name === null) {
+    return CONCENTRATOR_ABSENT_LABEL;
+  }
+  return name;
 }
 
 export function formatStructure(type: StructureType): string {
@@ -49,7 +57,7 @@ export function formatSolutionHover(solution: SepSolution): string {
   return [
     `ФЭП: ${solution.photovoltaicCellName}`,
     `Конструкция: ${formatStructure(solution.structureType)}`,
-    `Материал: ${formatMaterialName(solution.concentratorMaterialName)}`,
+    `Материал: ${formatMaterialName(solution.concentratorMaterialName, solution.concentration)}`,
     `K: ${formatConcentration(solution.concentration)}`,
     `S_SEP: ${formatAreaM2(solution.sepAreaM2)} м²`,
     `S_FEP: ${formatAreaM2(solution.fepAreaM2)} м²`,

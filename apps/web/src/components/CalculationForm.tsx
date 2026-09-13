@@ -124,8 +124,9 @@ export function CalculationForm({ value, onChange, onSubmit }: CalculationFormPr
       <fieldset className="panel">
         <legend>Материалы концентратора</legend>
         <p className="hint">
-          При K=1 концентратора нет, материал в результатах всегда пустой. Можно не
-          выбирать материалы — останутся только конфигурации без концентратора.
+          При K=1 концентратора нет: в таблице и подсказке графика показывается
+          «Концентратор отсутствует». Можно не выбирать материалы — останутся
+          только конфигурации без концентратора.
         </p>
         <div className="check-row wrap">
           {CONCENTRATOR_MATERIALS.map((material) => (

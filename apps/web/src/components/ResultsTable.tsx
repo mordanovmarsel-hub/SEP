@@ -38,8 +38,9 @@ export function ResultsTable({
     <section className="panel" aria-label="Таблица результатов">
       <h2>Допустимые конфигурации</h2>
       <p className="hint">
-        Числа округлены только для отображения. Нажмите заголовок колонки, чтобы
-        сортировать. Строка связана с точкой графика по идентификатору решения.
+        Числа округлены только для отображения. Парето-решения всегда сверху;
+        выбранная сортировка применяется внутри групп. Строка связана с точкой
+        графика по идентификатору решения.
       </p>
       <div className="table-scroll">
         <table className="results-table" data-testid="results-table">
@@ -84,7 +85,12 @@ export function ResultsTable({
                 >
                   <td>{solution.photovoltaicCellName}</td>
                   <td>{formatStructure(solution.structureType)}</td>
-                  <td>{formatMaterialName(solution.concentratorMaterialName)}</td>
+                  <td>
+                    {formatMaterialName(
+                      solution.concentratorMaterialName,
+                      solution.concentration,
+                    )}
+                  </td>
                   <td>{formatAltitudeKm(solution.altitudeKm)}</td>
                   <td>{formatConcentration(solution.concentration)}</td>
                   <td>{formatAreaM2(solution.sepAreaM2)}</td>
