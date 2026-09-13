@@ -59,6 +59,7 @@ export function parseCsvRecords(text: string): CsvRecord[] {
   let cells: string[] = [];
   let field = '';
   let quoted = false;
+  let afterClosingQuote = false;
   let lineNumber = 1;
   let recordStartLine = 1;
   let index = 0;
@@ -67,6 +68,7 @@ export function parseCsvRecords(text: string): CsvRecord[] {
   const pushField = (): void => {
     cells.push(field);
     field = '';
+    afterClosingQuote = false;
   };
 
   const pushRecord = (): void => {
@@ -89,6 +91,7 @@ export function parseCsvRecords(text: string): CsvRecord[] {
           continue;
         }
         quoted = false;
+        afterClosingQuote = true;
         index += 1;
         continue;
       }
@@ -100,7 +103,23 @@ export function parseCsvRecords(text: string): CsvRecord[] {
       continue;
     }
 
+    if (
+      afterClosingQuote &&
+      char !== ',' &&
+      char !== '\r' &&
+      char !== '\n'
+    ) {
+      throw new CsvImportError(
+        `Строка ${String(lineNumber)}: после закрывающей кавычки допускается только разделитель, перевод строки или конец файла.`,
+      );
+    }
+
     if (char === '"') {
+      if (field.length > 0) {
+        throw new CsvImportError(
+          `Строка ${String(lineNumber)}: кавычка внутри незакавыченного поля недопустима.`,
+        );
+      }
       quoted = true;
       index += 1;
       continue;
@@ -138,7 +157,7 @@ export function parseCsvRecords(text: string): CsvRecord[] {
     );
   }
 
-  if (field !== '' || cells.length > 0) {
+  if (field !== '' || cells.length > 0 || afterClosingQuote) {
     pushField();
     pushRecord();
   }
@@ -275,4 +294,28 @@ export function applyCsvImport(
       status: null,
     };
   }
+}
+
+const FILE_READ_ERROR = 'Не удалось прочитать файл CSV.';
+
+/**
+ * Reads a local CSV file and replaces the FEP list only after the whole
+ * file is valid. A rejected `file.text()` keeps `current` intact.
+ */
+export async function importCsvFile(
+  current: readonly FepDraft[],
+  file: Pick<File, 'name' | 'text'>,
+): Promise<CsvImportResult> {
+  let text: string;
+  try {
+    text = await file.text();
+  } catch {
+    return {
+      feps: current,
+      error: FILE_READ_ERROR,
+      status: null,
+    };
+  }
+
+  return applyCsvImport(current, file.name, text);
 }

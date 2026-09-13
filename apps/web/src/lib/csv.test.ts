@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { applyCsvImport, CsvImportError, parseFepCsv } from './csv.ts';
+import {
+  applyCsvImport,
+  CsvImportError,
+  importCsvFile,
+  parseFepCsv,
+} from './csv.ts';
 import { buildCalculationInput, DEFAULT_FORM, type FepDraft } from './form.ts';
 
 const CURRENT: readonly FepDraft[] = [
@@ -94,6 +99,33 @@ describe('parseFepCsv', () => {
       /нет строк с данными/,
     );
   });
+
+  it('rejects a character after a closing quote in "ФЭП А"x', () => {
+    expect(() =>
+      parseFepCsv('name,efficiencyPercent\n"ФЭП А"x,30\n'),
+    ).toThrow(CsvImportError);
+    expect(() =>
+      parseFepCsv('name,efficiencyPercent\n"ФЭП А"x,30\n'),
+    ).toThrow(/Строка 2: после закрывающей кавычки/);
+  });
+
+  it('rejects a quote inside an unquoted field', () => {
+    expect(() =>
+      parseFepCsv('name,efficiencyPercent\nФЭП "А",30\n'),
+    ).toThrow(CsvImportError);
+    expect(() =>
+      parseFepCsv('name,efficiencyPercent\nФЭП "А",30\n'),
+    ).toThrow(/Строка 2: кавычка внутри незакавыченного поля/);
+  });
+
+  it('rejects any character after a closing quote before a delimiter', () => {
+    expect(() =>
+      parseFepCsv('name,efficiencyPercent\n"ФЭП А" ,30\n'),
+    ).toThrow(/Строка 2: после закрывающей кавычки/);
+    expect(() =>
+      parseFepCsv('name,efficiencyPercent\n"ok","30"x\n'),
+    ).toThrow(/Строка 2: после закрывающей кавычки/);
+  });
 });
 
 describe('applyCsvImport', () => {
@@ -127,6 +159,24 @@ describe('applyCsvImport', () => {
     );
     expect(bad.feps).toBe(CURRENT);
     expect(bad.error).toMatch(/Строка 2/);
+
+    const afterQuote = applyCsvImport(
+      CURRENT,
+      'after-quote.csv',
+      'name,efficiencyPercent\n"ФЭП А"x,30\n',
+    );
+    expect(afterQuote.feps).toBe(CURRENT);
+    expect(afterQuote.error).toMatch(/Строка 2: после закрывающей кавычки/);
+
+    const innerQuote = applyCsvImport(
+      CURRENT,
+      'inner-quote.csv',
+      'name,efficiencyPercent\nФЭП "А",30\n',
+    );
+    expect(innerQuote.feps).toBe(CURRENT);
+    expect(innerQuote.error).toMatch(
+      /Строка 2: кавычка внутри незакавыченного поля/,
+    );
   });
 
   it('rejects XLS/XLSX without touching the current list', () => {
@@ -156,5 +206,23 @@ describe('applyCsvImport', () => {
       { id: 'fep-1', name: 'ФЭП А', efficiency: 0.3 },
       { id: 'fep-2', name: 'ФЭП Б', efficiency: 0.285 },
     ]);
+  });
+});
+
+describe('importCsvFile', () => {
+  it('keeps already entered FEP data when file.text() rejects', async () => {
+    const file = {
+      name: 'cells.csv',
+      text: async (): Promise<string> => {
+        throw new Error('Failed to read blob');
+      },
+    };
+
+    const result = await importCsvFile(CURRENT, file);
+
+    expect(result.feps).toBe(CURRENT);
+    expect(result.error).toBe('Не удалось прочитать файл CSV.');
+    expect(result.status).toBeNull();
+    expect(CURRENT[0]?.name).toBe('Уже введённый');
   });
 });

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { applyCsvImport } from '../lib/csv.ts';
+import { importCsvFile } from '../lib/csv.ts';
 import { createFepDraft, type FepDraft } from '../lib/form.ts';
 
 interface FepEditorProps {
@@ -27,8 +27,7 @@ export function FepEditor({ feps, onChange }: FepEditorProps) {
   }
 
   async function handleCsvFile(file: File): Promise<void> {
-    const text = await file.text();
-    const result = applyCsvImport(feps, file.name, text);
+    const result = await importCsvFile(feps, file);
     if (result.error !== null) {
       setImportError(result.error);
       setImportStatus(null);
